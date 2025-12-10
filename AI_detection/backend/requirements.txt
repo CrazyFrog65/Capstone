@@ -1,0 +1,9 @@
+Flask>=2.0
+flask-cors
+torch
+torchvision
+Pillow
+requests
+numpy
+serpapi
+google-search-results

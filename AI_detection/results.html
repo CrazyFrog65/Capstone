@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake Image Detection — Results</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="results-page">
+    <div class="topbar">
+        <div class="topbar-left">Fake Image Detector</div>
+        <div class="topbar-right"><button id="submit-another" class="btn small">Submit another</button></div>
+    </div>
+
+    <main class="results-container">
+        <section class="left-pane">
+            <div class="image-wrapper">
+                <img id="res-original-image" src="" alt="Original Image"/>
+            </div>
+            <div class="prediction-block">
+                <h2 id="res-pred-label">-</h2>
+                <p><strong>Confidence:</strong> <span id="res-pred-confidence">-</span></p>
+                <p><strong>Breakdown:</strong></p>
+                <ul id="res-pred-probs"></ul>
+            </div>
+        </section>
+        <section class="right-pane">
+            <div id="res-reverse">
+                <h3>Reverse Search Results</h3>
+                <div id="res-reverse-grid" class="reverse-grid"></div>
+                <p id="res-reverse-status"></p>
+                <p id="res-reverse-source"></p>
+            </div>
+            <div id="res-fake" style="display:none;">
+                <h3>Result</h3>
+                <p class="fake-note">Likely AI generated</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // On load, read sessionStorage for 'lastPrediction'
+        const dataStr = sessionStorage.getItem('lastPrediction');
+        if (!dataStr) {
+            // No result — redirect back to input page
+            window.location.href = 'index.html';
+        }
+        const data = JSON.parse(dataStr);
+
+        // Fill left pane
+        const origImg = document.getElementById('res-original-image');
+        if (data.original_image) {
+            origImg.src = data.original_image;
+        } else if (data.input_url) {
+            origImg.src = data.input_url;
+        } else {
+            origImg.alt = 'No image provided';
+        }
+
+        const labelEl = document.getElementById('res-pred-label');
+        const confEl = document.getElementById('res-pred-confidence');
+        const probsEl = document.getElementById('res-pred-probs');
+
+        const label = (data.class || '-').toUpperCase();
+        const confidence = (typeof data.confidence !== 'undefined') ? data.confidence : '-';
+        labelEl.innerText = label;
+        confEl.innerText = (typeof confidence === 'number') ? confidence + '%' : confidence;
+        probsEl.innerHTML = '';
+        if (data.probabilities) {
+            for (const [k, v] of Object.entries(data.probabilities)) {
+                const li = document.createElement('li');
+                li.innerText = `${k}: ${v}%`;
+                probsEl.appendChild(li);
+            }
+        }
+
+        // Set color for REAL or FAKE
+        if (label === 'REAL') {
+            labelEl.classList.add('pred-real');
+            labelEl.classList.remove('pred-fake');
+        } else {
+            labelEl.classList.add('pred-fake');
+            labelEl.classList.remove('pred-real');
+        }
+
+        // Right pane
+        if (label === 'REAL' && data.reverse_results && data.reverse_results.length > 0) {
+            const container = document.getElementById('res-reverse-grid');
+            container.innerHTML = '';
+            data.reverse_results.forEach(r => {
+                const a = document.createElement('a');
+                a.href = r.link || '#';
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.className = 'reverse-item';
+
+                const img = document.createElement('img');
+                img.alt = r.title || 'result';
+                img.src = r.thumbnail || '';
+                img.loading = 'lazy';
+                img.onerror = function() { this.style.display='none'; };
+                a.appendChild(img);
+
+                const span = document.createElement('span');
+                span.innerText = r.title || r.link || '';
+                span.className = 'reverse-title';
+                a.appendChild(span);
+
+                container.appendChild(a);
+            });
+            document.getElementById('res-reverse-status').innerText = `Found ${data.reverse_results.length} match(es)`;
+            if (data.reverse_source_url) {
+                document.getElementById('res-reverse-source').innerHTML = `Search source: <a href="${data.reverse_source_url}" target="_blank">${data.reverse_source_url}</a>`;
+            }
+            document.getElementById('res-reverse').style.display = 'block';
+            document.getElementById('res-fake').style.display = 'none';
+        } else if (label === 'REAL') {
+            document.getElementById('res-reverse-status').innerText = `No reverse matches found`;
+            document.getElementById('res-reverse').style.display = 'block';
+            document.getElementById('res-fake').style.display = 'none';
+        } else {
+            document.getElementById('res-reverse').style.display = 'none';
+            document.getElementById('res-fake').style.display = 'block';
+        }
+
+        // Submit another button
+        const submitAnother = document.getElementById('submit-another');
+        submitAnother.addEventListener('click', () => {
+            // clear lastPrediction
+            sessionStorage.removeItem('lastPrediction');
+            window.location.href = 'index.html';
+        });
+
+    </script>
+</body>
+</html>
